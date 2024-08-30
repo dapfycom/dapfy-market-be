@@ -1,0 +1,257 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id              String           @id @default(uuid())
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+    firstName       String? // Consider making this required based on business needs
+    lastName        String? // Consider making this required based on business needs
+    username        String           @unique @db.VarChar(255)
+    role            Role             @default(USER)
+    email           String           @unique @db.VarChar(255)
+    password        String           @db.VarChar(255)
+    avatar          String?
+    isActive        Boolean          @default(true)
+    settings        UserSettings?
+    orders          Order[]
+    cart            Cart?
+    sellerAnalytics SellerAnalytics?
+    supportTickets  SupportTicket[]
+    stores          Store[]
+    subscriptions   Subscription[]
+    reviews         Review[]
+
+    @@index([createdAt, updatedAt])
+    @@map("users")
+}
+
+model UserSettings {
+    id              String  @id @default(uuid())
+    isEmailVerified Boolean @default(false)
+    isPhoneVerified Boolean @default(false)
+    userId          String  @unique
+    user            User    @relation(fields: [userId], references: [id])
+
+    @@map("user_settings")
+}
+
+model Store {
+    id          String    @id @default(uuid())
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+    name        String    @db.VarChar(255)
+    description String?
+    ownerId     String
+    owner       User      @relation(fields: [ownerId], references: [id])
+    products    Product[]
+
+    @@index([createdAt, updatedAt])
+    @@map("stores")
+}
+
+model Product {
+    id            String         @id @default(uuid())
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+    title         String         @db.VarChar(255)
+    description   String
+    price         Decimal        @db.Decimal(10, 2)
+    storeId       String
+    store         Store          @relation(fields: [storeId], references: [id])
+    isActive      Boolean        @default(true)
+    status        ProductStatus  @default(DRAFT)
+    paymentType   PaymentType    @default(SINGLE)
+    images        ProductImage[]
+    digitalFiles  DigitalFile[]
+    cartItems     CartItem[]
+    orderItems    OrderItem[]
+    subscriptions Subscription[]
+    categoryId    String
+    category      Category       @relation(fields: [categoryId], references: [id])
+    reviews       Review[]
+    averageRating Float          @default(0)
+    viewCount     Int            @default(0)
+
+    @@index([createdAt, updatedAt])
+    @@map("products")
+}
+
+model ProductImage {
+    id        String  @id @default(uuid())
+    productId String
+    product   Product @relation(fields: [productId], references: [id])
+    url       String  @db.VarChar(255)
+
+    @@map("product_images")
+}
+
+model DigitalFile {
+    id        String  @id @default(uuid())
+    productId String
+    product   Product @relation(fields: [productId], references: [id])
+    fileName  String  @db.VarChar(255)
+    fileSize  Int
+    fileUrl   String  @db.VarChar(255)
+
+    @@map("digital_files")
+}
+
+model Subscription {
+    id        String             @id @default(uuid())
+    createdAt DateTime           @default(now())
+    updatedAt DateTime           @updatedAt
+    userId    String
+    user      User               @relation(fields: [userId], references: [id])
+    productId String
+    product   Product            @relation(fields: [productId], references: [id])
+    status    SubscriptionStatus @default(ACTIVE)
+
+    @@index([createdAt, updatedAt])
+    @@map("subscriptions")
+}
+
+model Cart {
+    id        String     @id @default(uuid())
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
+    userId    String     @unique
+    user      User       @relation(fields: [userId], references: [id])
+    items     CartItem[]
+
+    @@index([createdAt, updatedAt])
+    @@map("carts")
+}
+
+model CartItem {
+    id        String  @id @default(uuid())
+    cartId    String
+    cart      Cart    @relation(fields: [cartId], references: [id])
+    productId String
+    product   Product @relation(fields: [productId], references: [id])
+    quantity  Int
+
+    @@map("cart_items")
+}
+
+model Order {
+    id        String      @id @default(uuid())
+    createdAt DateTime    @default(now())
+    updatedAt DateTime    @updatedAt
+    userId    String
+    user      User        @relation(fields: [userId], references: [id])
+    status    OrderStatus @default(PENDING)
+    items     OrderItem[]
+    total     Decimal     @db.Decimal(10, 2)
+
+    @@index([createdAt, updatedAt])
+    @@map("orders")
+}
+
+model OrderItem {
+    id        String  @id @default(uuid())
+    orderId   String
+    order     Order   @relation(fields: [orderId], references: [id])
+    productId String
+    product   Product @relation(fields: [productId], references: [id])
+    quantity  Int
+    price     Decimal @db.Decimal(10, 2)
+
+    @@map("order_items")
+}
+
+model SellerAnalytics {
+    id          String   @id @default(uuid())
+    sellerId    String   @unique
+    seller      User     @relation(fields: [sellerId], references: [id])
+    totalSales  Decimal  @db.Decimal(10, 2)
+    totalOrders Int
+    lastUpdated DateTime @updatedAt
+
+    @@index([lastUpdated])
+    @@map("seller_analytics")
+}
+
+model SupportTicket {
+    id          String       @id @default(uuid())
+    createdAt   DateTime     @default(now())
+    updatedAt   DateTime     @updatedAt
+    userId      String
+    user        User         @relation(fields: [userId], references: [id])
+    subject     String       @db.VarChar(255)
+    description String
+    status      TicketStatus @default(OPEN)
+
+    @@index([createdAt, updatedAt])
+    @@map("support_tickets")
+}
+
+// Enum definitions
+
+enum Role {
+    USER
+    SELLER
+    ADMIN
+}
+
+enum OrderStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    CANCELLED
+}
+
+enum TicketStatus {
+    OPEN
+    IN_PROGRESS
+    RESOLVED
+    CLOSED
+}
+
+enum ProductStatus {
+    DRAFT
+    PUBLISHED
+}
+
+enum PaymentType {
+    SINGLE
+    SUBSCRIPTION
+}
+
+enum SubscriptionStatus {
+    ACTIVE
+    CANCELLED
+    EXPIRED
+}
+
+model Category {
+    id       String    @id @default(uuid())
+    name     String    @unique
+    products Product[]
+
+    @@map("categories")
+}
+
+model Review {
+    id        String   @id @default(uuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    rating    Int
+    comment   String?
+    productId String
+    product   Product  @relation(fields: [productId], references: [id])
+    userId    String
+    user      User     @relation(fields: [userId], references: [id])
+
+    @@index([createdAt, updatedAt])
+    @@map("reviews")
+}
