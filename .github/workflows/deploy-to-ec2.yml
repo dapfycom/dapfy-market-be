@@ -24,10 +24,10 @@ jobs:
         USER: ubuntu
       run: |
         ssh -o StrictHostKeyChecking=no $USER@$HOST << EOF
-          source ~/.profile
+          export PATH="/home/ubuntu/.nvm/versions/node/v20.17.0/bin:/home/ubuntu/.yarn/bin:$PATH"
           cd dapfy-market-be
           git pull
-          yarn install
-          yarn build
-          pm2 restart be-api
+          /home/ubuntu/.nvm/versions/node/v20.17.0/bin/yarn install
+          /home/ubuntu/.nvm/versions/node/v20.17.0/bin/yarn build
+          /home/ubuntu/.yarn/bin/pm2 restart be-api
         EOF
