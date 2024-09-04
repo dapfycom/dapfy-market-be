@@ -146,19 +146,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid Google token');
     }
 
-    const { email, picture } = payload;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const { email, picture, given_name, family_name } = payload;
 
     return this.validateGoogleUser({
       email: email!,
       picture: picture!,
+      firstName: given_name ?? '',
+      lastName: family_name ?? '',
+      username: email!,
     });
   }
 
   async validateGoogleUser(profile: {
     email: string;
     picture: string;
+    firstName: string;
+    lastName: string;
+    username: string;
   }): Promise<UserDto> {
-    const { email, picture } = profile;
+    const { email, picture, firstName, lastName, username } = profile;
     const user = await this.userService.findOne({ email });
 
     return user
@@ -166,6 +173,9 @@ export class AuthService {
       : this.userService.createUserByGoogle({
           email,
           picture,
+          firstName,
+          lastName,
+          username,
         });
   }
 }

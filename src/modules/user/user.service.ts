@@ -122,7 +122,7 @@ export class UserService {
     const user = await this.prisma.user.create({
       data: {
         email,
-        username: email,
+        username: '',
         password: generateHash(randomUUID().toString()),
         settings: {
           create: {
@@ -139,12 +139,17 @@ export class UserService {
   async createUserByGoogle(profile: {
     email: string;
     picture: string;
+    username: string;
+    firstName: string;
+    lastName: string;
   }): Promise<UserDto> {
-    const { email, picture } = profile;
+    const { email, picture, username, firstName, lastName } = profile;
     const user = await this.prisma.user.create({
       data: {
         email,
-        username: email,
+        username,
+        firstName,
+        lastName,
         password: generateHash(randomUUID().toString()),
         avatar: picture,
       },

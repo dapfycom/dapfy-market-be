@@ -98,8 +98,11 @@ export class AuthController {
   @Get('google')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'Google OAuth URL' })
-  googleAuth(): string {
-    return this.authService.getGoogleAuthUrl();
+  googleAuth(): { url: string; message: string } {
+    return {
+      url: this.authService.getGoogleAuthUrl(),
+      message: 'Google OAuth URL',
+    };
   }
 
   @Get('google/callback')
