@@ -28,6 +28,6 @@ jobs:
           cd dapfy-market-be
           git pull
           /home/ubuntu/.nvm/versions/node/v20.17.0/bin/yarn install
-          /home/ubuntu/.nvm/versions/node/v20.17.0/bin/yarn build
+          /home/ubuntu/.nvm/versions/node/v20.17.0/bin/yarn build:prod
           /home/ubuntu/.yarn/bin/pm2 restart be-api
         EOF
