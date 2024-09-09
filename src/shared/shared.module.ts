@@ -6,6 +6,7 @@ import { ApiConfigService } from './services/api-config.service';
 import { AwsS3Service } from './services/aws-s3.service';
 import { EmailService } from './services/email.service';
 import { GeneratorService } from './services/generator.service';
+import { GroqService } from './services/groq.service';
 import { PrismaService } from './services/prisma.service';
 import { ValidatorService } from './services/validator.service';
 
@@ -16,6 +17,7 @@ const providers: Provider[] = [
   GeneratorService,
   PrismaService,
   EmailService,
+  GroqService,
 ];
 
 @Global()

@@ -1,9 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { $Enums, PaymentType, ProductStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { ArrayMaxSize, IsArray } from 'class-validator';
 import { EnumField, NumberField, StringField } from '../../../decorators';
-import type { IFile } from '../../../interfaces';
 import type { Product } from '../entities/product.entity';
 
 export class CreateProductDto
@@ -17,6 +15,7 @@ export class CreateProductDto
       | 'storeId'
       | 'averageRating'
       | 'viewCount'
+      | 'categoryId'
     >
 {
   @ApiProperty({
@@ -56,24 +55,4 @@ export class CreateProductDto
   })
   @EnumField(() => ProductStatus)
   status!: $Enums.ProductStatus;
-
-  @ApiProperty({ type: 'array', items: { type: 'string', format: 'binary' } })
-  @IsArray()
-  @ArrayMaxSize(10)
-  images!: IFile[];
-
-  @ApiProperty({
-    type: 'array',
-    items: { type: 'string', format: 'binary' },
-    description: 'Digital files associated with the product',
-  })
-  @IsArray()
-  digitalFiles?: IFile[];
-
-  @ApiProperty({
-    description: 'Id of the category',
-    example: '11b936b5-5e31-4dc7-8637-c03ecc770065',
-  })
-  @StringField()
-  categoryId!: string;
 }

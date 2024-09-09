@@ -39,7 +39,7 @@ export class ProductsController {
   ) {}
 
   @Post(':storeId')
-  @Auth([RoleType.SELLER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.CREATED)
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -117,6 +117,22 @@ export class ProductsController {
     return this.productsService.findProducts(pageOptionsDto);
   }
 
+  @Get('user/paginated')
+  @Auth([RoleType.USER, RoleType.ADMIN])
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Paginated products fetched successfully',
+    type: [Product],
+  })
+  findPaginatedByUser(
+    @Query(new ValidationPipe({ transform: true }))
+    pageOptionsDto: PageOptionsDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.productsService.findProductsByUser(pageOptionsDto, user.id);
+  }
+
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiResponse({
@@ -129,7 +145,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  @Auth([RoleType.SELLER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.OK)
   @ApiResponse({
     status: HttpStatus.OK,
@@ -145,7 +161,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @Auth([RoleType.SELLER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
@@ -156,7 +172,7 @@ export class ProductsController {
   }
 
   @Post(':id/reviews')
-  @Auth([RoleType.USER, RoleType.SELLER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.CREATED)
   @ApiResponse({
     status: HttpStatus.CREATED,

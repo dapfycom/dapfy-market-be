@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -10,6 +11,7 @@ import { PageDto } from '../../common/dto/page.dto';
 import { RoleType } from '../../constants';
 import type { IFile } from '../../interfaces';
 import { AwsS3Service } from '../../shared/services/aws-s3.service';
+import { GroqService } from '../../shared/services/groq.service';
 import { PrismaService } from '../../shared/services/prisma.service';
 import type { CreateReviewDto } from './dto/create-product-review.dto';
 import type { CreateProductDto } from './dto/create-product.dto';
@@ -22,6 +24,7 @@ export class ProductsService {
     private prisma: PrismaService,
 
     private awsS3Service: AwsS3Service,
+    private groqService: GroqService,
   ) {}
 
   async verifyStoreOwnership(
@@ -51,6 +54,7 @@ export class ProductsService {
     );
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async create(
     createProductDto: CreateProductDto,
     storeId: string,
@@ -58,71 +62,153 @@ export class ProductsService {
     images?: IFile[],
     digitalFiles?: IFile[],
   ) {
-    const canCreate = await this.verifyStoreOwnership(storeId, userId);
+    try {
+      const canCreate = await this.verifyStoreOwnership(storeId, userId);
 
-    if (!canCreate) {
-      throw new ForbiddenException(
-        'You do not have permission to create a product in this store',
+      if (!canCreate) {
+        throw new ForbiddenException(
+          'You do not have permission to create a product in this store',
+        );
+      }
+
+      let imageUrls: string[] = [];
+      let digitalFileData: Array<{
+        fileName: string;
+        fileSize: number;
+        fileUrl: string;
+      }> = [];
+
+      if (images) {
+        try {
+          imageUrls = await this.awsS3Service.uploadImages(images);
+        } catch (error) {
+          throw new InternalServerErrorException(
+            'Failed to upload images to S3',
+            error?.message as string,
+          );
+        }
+      }
+
+      if (digitalFiles) {
+        try {
+          const uploadPromises = digitalFiles.map((file) =>
+            this.awsS3Service.uploadPrivatedFile(file).then((uploadedFile) => ({
+              fileName: file.fieldname,
+              fileSize: file.size,
+              fileUrl: uploadedFile,
+            })),
+          );
+          digitalFileData = await Promise.all(uploadPromises);
+        } catch (error) {
+          throw new InternalServerErrorException(
+            'Failed to upload digital files to S3',
+            error?.message as string,
+          );
+        }
+      }
+
+      const categories = await this.prisma.category.findMany();
+
+      const categoryPrompt = `Analyze the product title "${createProductDto.title}" 
+      and description "${createProductDto.description}". 
+      Select the most suitable category from this list: ${categories.map((category) => category.name).join(', ')}. 
+      If no existing category fits well, propose a new one. 
+      Respond with either "Existing: [category name]" for an existing category, 
+      or "New: [suggested category name]" for a new category.`;
+
+      const systemPrompt = `You are an AI assistant specializing in product categorization. 
+      Your task is to categorize products based on their title and description. 
+      Respond only with one of these two formats:
+      1. "Existing: [category name]" if the category already exists in the list.
+      2. "New: [suggested category name]" if you're proposing a new category.
+      Available categories: [${categories.map((category) => category.name).join(', ')}].
+      Ensure your response is concise and follows the specified format.`;
+
+      let categoryResponse;
+
+      try {
+        categoryResponse = await this.groqService.chatCompletion(
+          categoryPrompt,
+          systemPrompt,
+        );
+      } catch (error) {
+        throw new InternalServerErrorException(
+          'Failed to get AI category suggestion',
+          error?.message as string,
+        );
+      }
+
+      let categoryId: string;
+
+      if (categoryResponse.startsWith('Existing:')) {
+        const categoryName = categoryResponse.split('Existing:')[1]?.trim();
+        const existingCategory = categories.find(
+          (c) => c.name.toLowerCase() === categoryName?.toLowerCase(),
+        );
+
+        if (existingCategory) {
+          categoryId = existingCategory.id;
+        } else {
+          throw new BadRequestException(
+            'AI suggested an existing category that was not found',
+          );
+        }
+      } else if (categoryResponse.startsWith('New:')) {
+        const newCategoryName = categoryResponse.split('New:')[1]?.trim();
+
+        try {
+          const newCategory = await this.prisma.category.create({
+            data: { name: newCategoryName ?? '' },
+          });
+          categoryId = newCategory.id;
+        } catch (error) {
+          throw new InternalServerErrorException(
+            'Failed to create new category',
+            error?.message as string,
+          );
+        }
+      } else {
+        throw new BadRequestException('Unexpected AI response format');
+      }
+
+      return this.prisma.product.create({
+        data: {
+          ...createProductDto,
+          categoryId,
+          storeId,
+
+          images:
+            imageUrls.length > 0
+              ? {
+                  create: imageUrls.map((url) => ({ url })),
+                }
+              : undefined,
+          digitalFiles:
+            digitalFileData.length > 0
+              ? {
+                  create: digitalFileData.map((file) => ({
+                    fileName: file.fileName,
+                    fileSize: file.fileSize,
+                    fileUrl: file.fileUrl,
+                  })),
+                }
+              : undefined,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof ForbiddenException ||
+        error instanceof BadRequestException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Failed to create product',
+        error?.message as string,
       );
     }
-
-    let imageUrls: string[] = [];
-    let digitalFileData: Array<{
-      fileName: string;
-      fileSize: number;
-      fileUrl: string;
-    }> = [];
-
-    if (images) {
-      try {
-        // Upload images to S3
-        imageUrls = await this.awsS3Service.uploadImages(images);
-      } catch {
-        throw new InternalServerErrorException('Failed to upload images to S3');
-      }
-    }
-
-    if (digitalFiles) {
-      try {
-        // Upload digital files to S3
-        const uploadPromises = digitalFiles.map((file) =>
-          this.awsS3Service.uploadPrivatedFile(file).then((uploadedFile) => ({
-            fileName: file.fieldname,
-            fileSize: file.size,
-            fileUrl: uploadedFile,
-          })),
-        );
-        digitalFileData = await Promise.all(uploadPromises);
-      } catch {
-        throw new InternalServerErrorException(
-          'Failed to upload digital files to S3',
-        );
-      }
-    }
-
-    return this.prisma.product.create({
-      data: {
-        ...createProductDto,
-        storeId,
-
-        images:
-          imageUrls.length > 0
-            ? {
-                create: imageUrls.map((url) => ({ url })),
-              }
-            : undefined,
-        digitalFiles:
-          digitalFileData.length > 0
-            ? {
-                create: digitalFileData.map((file) => ({
-                  fileName: file.fileName,
-                  fileSize: file.fileSize,
-                  fileUrl: file.fileUrl,
-                })),
-              }
-            : undefined,
-      },
-    });
   }
 
   findAll() {
@@ -151,6 +237,38 @@ export class ProductsService {
         orderBy: { [q]: order },
       }),
       this.prisma.product.count({ where: { isActive: true } }),
+    ]);
+
+    const pageMetaDto = new PageMetaDto({
+      pageOptionsDto: paginationDto,
+      itemCount: products.length,
+      totalItems: total,
+    });
+
+    return new PageDto(products, pageMetaDto);
+  }
+
+  async findProductsByUser(
+    paginationDto: PageOptionsDto,
+    userId: string,
+  ): Promise<PageDto<Partial<Product>>> {
+    const { page, take, q = 'createdAt', order } = paginationDto;
+    const skip = (page - 1) * take;
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { isActive: true, store: { ownerId: userId } },
+        skip,
+        take,
+        orderBy: { [q]: order },
+        include: {
+          category: true,
+          store: true,
+        },
+      }),
+      this.prisma.product.count({
+        where: { isActive: true, store: { ownerId: userId } },
+      }),
     ]);
 
     const pageMetaDto = new PageMetaDto({

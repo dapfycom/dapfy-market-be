@@ -1,5 +1,5 @@
 import { S3 } from '@aws-sdk/client-s3';
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import mime from 'mime-types';
 
 import type { IFile } from '../../interfaces';
@@ -17,26 +17,35 @@ export class AwsS3Service {
     const awsS3Config = configService.awsS3Config;
 
     this.s3 = new S3({
-      apiVersion: awsS3Config.bucketApiVersion,
       region: awsS3Config.bucketRegion,
+      credentials: {
+        accessKeyId: awsS3Config.accessKeyId,
+        secretAccessKey: awsS3Config.secretAccessKey,
+      },
     });
   }
 
   async uploadImage(file: IFile, bucket?: string): Promise<string> {
-    const fileName = this.generatorService.fileName(
-      mime.extension(file.mimetype) as string,
-    );
-    const key = 'images/' + fileName;
+    try {
+      const fileName = this.generatorService.fileName(
+        mime.extension(file.mimetype) as string,
+      );
+      const key = 'images/' + fileName;
 
-    const bucketName = bucket ?? this.configService.awsS3Config.bucketName;
-    await this.s3.putObject({
-      Bucket: bucketName,
-      Body: file.buffer,
-      ACL: 'public-read',
-      Key: key,
-    });
+      const bucketName = bucket ?? this.configService.awsS3Config.bucketName;
 
-    return key;
+      await this.s3.putObject({
+        Bucket: bucketName,
+        Body: file.buffer,
+        Key: key,
+      });
+
+      return key;
+    } catch (error) {
+      console.error('error', error);
+
+      throw new InternalServerErrorException('Failed to upload image to S3');
+    }
   }
 
   async uploadImages(files: IFile[], bucket?: string): Promise<string[]> {

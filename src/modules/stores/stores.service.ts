@@ -72,6 +72,32 @@ export class StoresService {
     return new PageDto(stores, pageMetaDto);
   }
 
+  async findStoresByUser(
+    pageOptionsDto: PageOptionsDto,
+    userId: string,
+  ): Promise<PageDto<Partial<Store>>> {
+    const { page, take, q = 'createdAt', order } = pageOptionsDto;
+    const skip = (page - 1) * take;
+
+    const [stores, total] = await Promise.all([
+      this.prisma.store.findMany({
+        where: { ownerId: userId },
+        skip,
+        take,
+        orderBy: { [q]: order },
+      }),
+      this.prisma.store.count({ where: { ownerId: userId } }),
+    ]);
+
+    const pageMetaDto = new PageMetaDto({
+      pageOptionsDto,
+      itemCount: stores.length,
+      totalItems: total,
+    });
+
+    return new PageDto(stores, pageMetaDto);
+  }
+
   async update(id: string, updateStoreDto: UpdateStoreDto, userId: string) {
     const canUpdate = await this.verifyStoreOwnership(id, userId);
 

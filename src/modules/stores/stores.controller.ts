@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
+import { PageDto } from '../../common/dto/page.dto';
 import { RoleType } from '../../constants';
 import { Auth, AuthUser } from '../../decorators';
 import { UserEntity } from '../user/user.entity';
@@ -27,7 +28,7 @@ export class StoresController {
   constructor(private readonly storesService: StoresService) {}
 
   @Post()
-  @Auth([RoleType.SELLER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new store' })
   @ApiResponse({
@@ -57,13 +58,30 @@ export class StoresController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Paginated stores fetched successfully',
-    type: [Store],
+    type: [PageDto],
   })
   findPaginated(
     @Query(new ValidationPipe({ transform: true }))
     pageOptionsDto: PageOptionsDto,
   ) {
     return this.storesService.findStores(pageOptionsDto);
+  }
+
+  @Get('paginated/user')
+  @Auth([RoleType.USER, RoleType.ADMIN])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get paginated stores' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Paginated stores fetched successfully',
+    type: [PageDto],
+  })
+  findPaginatedByUser(
+    @Query(new ValidationPipe({ transform: true }))
+    pageOptionsDto: PageOptionsDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.storesService.findStoresByUser(pageOptionsDto, user.id);
   }
 
   @Get(':id')
@@ -79,7 +97,7 @@ export class StoresController {
   }
 
   @Patch(':id')
-  @Auth([RoleType.SELLER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a store' })
   @ApiResponse({
@@ -96,7 +114,7 @@ export class StoresController {
   }
 
   @Delete(':id')
-  @Auth([RoleType.SELLER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a store' })
   @ApiResponse({
