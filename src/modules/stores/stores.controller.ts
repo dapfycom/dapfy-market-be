@@ -84,16 +84,16 @@ export class StoresController {
     return this.storesService.findStoresByUser(pageOptionsDto, user.id);
   }
 
-  @Get(':id')
+  @Get(':idOrSlug')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get a store by ID' })
+  @ApiOperation({ summary: 'Get a store by ID or slug' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Store fetched successfully',
     type: Store,
   })
-  findOne(@Param('id') id: string) {
-    return this.storesService.findOne(id);
+  findOne(@Param('idOrSlug') idOrSlug: string) {
+    return this.storesService.findOneByIdOrSlug(idOrSlug);
   }
 
   @Patch(':id')

@@ -79,4 +79,10 @@ export class Product implements ProductPrisma {
     example: 100,
   })
   viewCount!: number;
+
+  @ApiProperty({
+    description: 'The slug of the product',
+    example: 'pro-photoshop-actions',
+  })
+  slug!: string;
 }

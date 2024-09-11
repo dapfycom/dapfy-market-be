@@ -14,6 +14,13 @@ export class Category implements CategoryPrisma {
     example: 'Design',
   })
   name!: string;
+
+  @ApiProperty({
+    description: 'The emoji of the category',
+    example: '🚀',
+    required: false,
+  })
+  emoji!: string | null;
 }
 
 export class CategoryWithProducts extends Category {

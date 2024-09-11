@@ -176,6 +176,7 @@ export class ProductsService {
           ...createProductDto,
           categoryId,
           storeId,
+          slug: createProductDto.title.toLowerCase().replaceAll(' ', '-'),
 
           images:
             imageUrls.length > 0

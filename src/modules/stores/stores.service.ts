@@ -30,7 +30,10 @@ export class StoresService {
 
   create(createStoreDto: CreateStoreDto, userId: string) {
     return this.prisma.store.create({
-      data: { ...createStoreDto, ownerId: userId },
+      data: {
+        ...createStoreDto,
+        ownerId: userId,
+      },
     });
   }
 
@@ -38,11 +41,17 @@ export class StoresService {
     return this.prisma.store.findMany();
   }
 
-  async findOne(id: string) {
-    const store = await this.prisma.store.findUnique({ where: { id } });
+  async findOneByIdOrSlug(idOrSlug: string) {
+    const store = await this.prisma.store.findFirst({
+      where: {
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+      },
+    });
 
     if (!store) {
-      throw new NotFoundException(`Store with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Store with ID or slug "${idOrSlug}" not found`,
+      );
     }
 
     return store;

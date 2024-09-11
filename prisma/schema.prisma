@@ -40,23 +40,46 @@ model UserSettings {
     isEmailVerified Boolean @default(false)
     isPhoneVerified Boolean @default(false)
     userId          String  @unique
-    user            User    @relation(fields: [userId], references: [id])
+    user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@map("user_settings")
 }
 
 model Store {
-    id          String    @id @default(uuid())
-    createdAt   DateTime  @default(now())
-    updatedAt   DateTime  @updatedAt
-    name        String    @unique @db.VarChar(255)
+    id          String        @id @default(uuid())
+    createdAt   DateTime      @default(now())
+    updatedAt   DateTime      @updatedAt
+    name        String        @unique @db.VarChar(255)
     description String?
     ownerId     String
-    owner       User      @relation(fields: [ownerId], references: [id])
+    owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
     products    Product[]
+    slug        String        @unique @db.VarChar(255)
+    logo        String?
+    socials     StoreSocial[] // Add this line
 
     @@index([createdAt, updatedAt])
     @@map("stores")
+}
+
+model StoreSocial {
+    id       String         @id @default(uuid())
+    storeId  String
+    store    Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+    platform SocialPlatform
+    url      String         @db.VarChar(255)
+
+    @@unique([storeId, platform])
+    @@map("store_socials")
+}
+
+enum SocialPlatform {
+    FACEBOOK
+    INSTAGRAM
+    TWITTER
+    YOUTUBE
+    TIKTOK
+    // Add more platforms here as needed
 }
 
 model Product {
@@ -73,14 +96,15 @@ model Product {
     paymentType   PaymentType    @default(SINGLE)
     images        ProductImage[]
     digitalFiles  DigitalFile[]
-    cartItems     CartItem[]
-    orderItems    OrderItem[]
-    subscriptions Subscription[]
+    cartItems     CartItem[]     @relation("ProductToCartItem")
+    orderItems    OrderItem[]    @relation("ProductToOrderItem")
+    subscriptions Subscription[] @relation("ProductToSubscription")
     categoryId    String
     category      Category       @relation(fields: [categoryId], references: [id])
-    reviews       Review[]
+    reviews       Review[]       @relation("ProductToReview")
     averageRating Float          @default(0)
     viewCount     Int            @default(0)
+    slug          String         @unique @db.VarChar(255)
 
     @@index([createdAt, updatedAt])
     @@map("products")
@@ -111,9 +135,9 @@ model Subscription {
     createdAt DateTime           @default(now())
     updatedAt DateTime           @updatedAt
     userId    String
-    user      User               @relation(fields: [userId], references: [id])
+    user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
     productId String
-    product   Product            @relation(fields: [productId], references: [id])
+    product   Product            @relation("ProductToSubscription", fields: [productId], references: [id], onDelete: Cascade)
     status    SubscriptionStatus @default(ACTIVE)
 
     @@index([createdAt, updatedAt])
@@ -125,7 +149,7 @@ model Cart {
     createdAt DateTime   @default(now())
     updatedAt DateTime   @updatedAt
     userId    String     @unique
-    user      User       @relation(fields: [userId], references: [id])
+    user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
     items     CartItem[]
 
     @@index([createdAt, updatedAt])
@@ -137,7 +161,7 @@ model CartItem {
     cartId    String
     cart      Cart    @relation(fields: [cartId], references: [id])
     productId String
-    product   Product @relation(fields: [productId], references: [id])
+    product   Product @relation("ProductToCartItem", fields: [productId], references: [id], onDelete: Cascade)
     quantity  Int
 
     @@map("cart_items")
@@ -148,7 +172,7 @@ model Order {
     createdAt DateTime    @default(now())
     updatedAt DateTime    @updatedAt
     userId    String
-    user      User        @relation(fields: [userId], references: [id])
+    user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
     status    OrderStatus @default(PENDING)
     items     OrderItem[]
     total     Decimal     @db.Decimal(10, 2)
@@ -162,7 +186,7 @@ model OrderItem {
     orderId   String
     order     Order   @relation(fields: [orderId], references: [id])
     productId String
-    product   Product @relation(fields: [productId], references: [id])
+    product   Product @relation("ProductToOrderItem", fields: [productId], references: [id], onDelete: Cascade)
     quantity  Int
     price     Decimal @db.Decimal(10, 2)
 
@@ -172,7 +196,7 @@ model OrderItem {
 model SellerAnalytics {
     id          String   @id @default(uuid())
     sellerId    String   @unique
-    seller      User     @relation(fields: [sellerId], references: [id])
+    seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
     totalSales  Decimal  @db.Decimal(10, 2)
     totalOrders Int
     lastUpdated DateTime @updatedAt
@@ -186,7 +210,7 @@ model SupportTicket {
     createdAt   DateTime     @default(now())
     updatedAt   DateTime     @updatedAt
     userId      String
-    user        User         @relation(fields: [userId], references: [id])
+    user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
     subject     String       @db.VarChar(255)
     description String
     status      TicketStatus @default(OPEN)
@@ -236,6 +260,7 @@ enum SubscriptionStatus {
 model Category {
     id       String    @id @default(uuid())
     name     String    @unique
+    emoji    String?
     products Product[]
 
     @@map("categories")
@@ -248,9 +273,9 @@ model Review {
     rating    Int
     comment   String?
     productId String
-    product   Product  @relation(fields: [productId], references: [id])
+    product   Product  @relation("ProductToReview", fields: [productId], references: [id], onDelete: Cascade)
     userId    String
-    user      User     @relation(fields: [userId], references: [id])
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@index([createdAt, updatedAt])
     @@map("reviews")

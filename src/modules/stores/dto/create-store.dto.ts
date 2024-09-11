@@ -20,4 +20,12 @@ export class CreateStoreDto
   })
   @StringField({ required: false })
   description!: string | null;
+
+  @ApiProperty({
+    description: 'The slug of the store',
+    example: 'digital-creations-shop',
+    required: false,
+  })
+  @StringField({ required: false })
+  slug!: string;
 }

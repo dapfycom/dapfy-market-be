@@ -55,4 +55,11 @@ export class CreateProductDto
   })
   @EnumField(() => ProductStatus)
   status!: $Enums.ProductStatus;
+
+  @ApiProperty({
+    description: 'The slug of the product',
+    example: 'pro-photoshop-actions',
+  })
+  @StringField()
+  slug!: string;
 }

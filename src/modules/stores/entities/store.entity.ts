@@ -33,4 +33,10 @@ export class Store implements StorePrisma {
     example: '11b936b5-5e31-4dc7-8637-c03ecc770065',
   })
   ownerId!: string;
+
+  @ApiProperty({
+    description: 'The slug of the store',
+    example: 'my-awesome-store',
+  })
+  slug!: string;
 }
