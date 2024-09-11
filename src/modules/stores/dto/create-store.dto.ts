@@ -1,15 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, MinLength } from 'class-validator';
 import { StringField } from '../../../decorators';
 import type { Store } from '../entities/store.entity';
 
 export class CreateStoreDto
   implements
-    Omit<Store, 'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'products'>
+    Omit<
+      Store,
+      'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'products' | 'logo'
+    >
 {
   @ApiProperty({
     description: 'The name of the store',
     example: 'Digital Creations Shop',
   })
+  @IsString()
+  @MinLength(1)
   @StringField()
   name!: string;
 
@@ -18,6 +24,8 @@ export class CreateStoreDto
     example: 'We sell high-quality digital products for creatives',
     required: false,
   })
+  @IsString()
+  @MinLength(1)
   @StringField({ required: false })
   description!: string | null;
 
@@ -26,6 +34,8 @@ export class CreateStoreDto
     example: 'digital-creations-shop',
     required: false,
   })
+  @IsString()
+  @MinLength(1)
   @StringField({ required: false })
   slug!: string;
 }

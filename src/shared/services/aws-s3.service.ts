@@ -81,4 +81,8 @@ export class AwsS3Service {
 
     return Promise.all(uploadPromises);
   }
+
+  getFullUrl(key: string): string {
+    return `https://${this.configService.awsS3Config.bucketName}.s3.${this.configService.awsS3Config.bucketRegion}.amazonaws.com/${key}`;
+  }
 }

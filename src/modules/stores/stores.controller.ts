@@ -9,13 +9,15 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { RoleType } from '../../constants';
-import { Auth, AuthUser } from '../../decorators';
+import { ApiFile, Auth, AuthUser } from '../../decorators';
+import { IFile } from '../../interfaces';
 import { UserEntity } from '../user/user.entity';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
@@ -36,8 +38,13 @@ export class StoresController {
     description: 'Store created successfully',
     type: Store,
   })
-  create(@Body() createStoreDto: CreateStoreDto, @AuthUser() user: UserEntity) {
-    return this.storesService.create(createStoreDto, user.id);
+  @ApiFile({ name: 'logo' })
+  create(
+    @Body() createStoreDto: CreateStoreDto,
+    @AuthUser() user: UserEntity,
+    @UploadedFile() logo: IFile,
+  ) {
+    return this.storesService.create(createStoreDto, user.id, logo);
   }
 
   @Get()

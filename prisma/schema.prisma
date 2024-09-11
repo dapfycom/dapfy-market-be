@@ -55,7 +55,7 @@ model Store {
     owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
     products    Product[]
     slug        String        @unique @db.VarChar(255)
-    logo        String?
+    logo        String
     socials     StoreSocial[] // Add this line
 
     @@index([createdAt, updatedAt])

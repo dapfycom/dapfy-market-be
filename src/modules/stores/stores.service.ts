@@ -7,14 +7,22 @@ import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import type { PageOptionsDto } from '../../common/dto/page-options.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { RoleType } from '../../constants';
+import { FileNotImageException } from '../../exceptions';
+import type { IFile } from '../../interfaces';
+import { AwsS3Service } from '../../shared/services/aws-s3.service';
 import { PrismaService } from '../../shared/services/prisma.service';
+import { ValidatorService } from '../../shared/services/validator.service';
 import type { CreateStoreDto } from './dto/create-store.dto';
 import type { UpdateStoreDto } from './dto/update-store.dto';
 import type { Store } from './entities/store.entity';
 
 @Injectable()
 export class StoresService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private validatorService: ValidatorService,
+    private awsS3Service: AwsS3Service,
+  ) {}
 
   async verifyStoreOwnership(
     storeId: string,
@@ -28,11 +36,18 @@ export class StoresService {
     return store?.ownerId === userId || store?.owner.role === RoleType.ADMIN;
   }
 
-  create(createStoreDto: CreateStoreDto, userId: string) {
+  async create(createStoreDto: CreateStoreDto, userId: string, file: IFile) {
+    if (!this.validatorService.isImage(file.mimetype)) {
+      throw new FileNotImageException();
+    }
+
+    const logoKey = await this.awsS3Service.uploadImage(file);
+
     return this.prisma.store.create({
       data: {
         ...createStoreDto,
         ownerId: userId,
+        logo: this.awsS3Service.getFullUrl(logoKey),
       },
     });
   }

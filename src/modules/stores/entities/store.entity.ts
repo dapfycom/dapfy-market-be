@@ -39,4 +39,10 @@ export class Store implements StorePrisma {
     example: 'my-awesome-store',
   })
   slug!: string;
+
+  @ApiProperty({
+    description: 'The logo of the store',
+    example: 'https://example.com/logo.png',
+  })
+  logo!: string;
 }
