@@ -57,6 +57,7 @@ model Store {
     slug        String        @unique @db.VarChar(255)
     logo        String
     socials     StoreSocial[] // Add this line
+    banner      String        @default("oceanBreeze")
 
     @@index([createdAt, updatedAt])
     @@map("stores")

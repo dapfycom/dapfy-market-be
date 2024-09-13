@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -19,6 +20,7 @@ import { RoleType } from '../../constants';
 import { ApiFile, Auth, AuthUser } from '../../decorators';
 import { IFile } from '../../interfaces';
 import { UserEntity } from '../user/user.entity';
+import type { CreateStoreSocialDto } from './dto/create-store.dto';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { Store } from './entities/store.entity';
@@ -44,7 +46,23 @@ export class StoresController {
     @AuthUser() user: UserEntity,
     @UploadedFile() logo: IFile,
   ) {
-    return this.storesService.create(createStoreDto, user.id, logo);
+    let parsedSocials: CreateStoreSocialDto[];
+
+    try {
+      parsedSocials = JSON.parse(createStoreDto.socials);
+    } catch {
+      throw new BadRequestException('Invalid socials data');
+    }
+
+    // If validation passes, create the store
+    return this.storesService.create(
+      {
+        ...createStoreDto,
+        socials: parsedSocials,
+      },
+      user.id,
+      logo,
+    );
   }
 
   @Get()
@@ -117,7 +135,23 @@ export class StoresController {
     @Body() updateStoreDto: UpdateStoreDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.storesService.update(id, updateStoreDto, user.id);
+    let parsedSocials: CreateStoreSocialDto[];
+
+    if (updateStoreDto.socials) {
+      try {
+        parsedSocials = JSON.parse(updateStoreDto.socials);
+      } catch {
+        throw new BadRequestException('Invalid socials data');
+      }
+    }
+
+    return this.storesService.update(
+      id,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      { ...updateStoreDto, socials: parsedSocials },
+      user.id,
+    );
   }
 
   @Delete(':id')

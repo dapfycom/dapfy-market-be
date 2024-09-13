@@ -1,7 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { SocialPlatform } from '@prisma/client';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 import { StringField } from '../../../decorators';
 import type { Store } from '../entities/store.entity';
+
+export class CreateStoreSocialDto {
+  @ApiProperty({
+    description: 'The name of the social',
+    example: 'facebook',
+  })
+  @IsString()
+  @MinLength(1)
+  platform!: SocialPlatform;
+
+  @ApiProperty({
+    description: 'The url of the social',
+    example: 'https://facebook.com/myawesome',
+  })
+  @IsString()
+  @MinLength(1)
+  url!: string;
+}
 
 export class CreateStoreDto
   implements
@@ -27,6 +46,7 @@ export class CreateStoreDto
   @IsString()
   @MinLength(1)
   @StringField({ required: false })
+  @IsOptional()
   description!: string | null;
 
   @ApiProperty({
@@ -36,6 +56,25 @@ export class CreateStoreDto
   })
   @IsString()
   @MinLength(1)
-  @StringField({ required: false })
+  @StringField()
+  @IsOptional()
   slug!: string;
+
+  @ApiProperty({
+    description: 'The banner of the store',
+    example: 'oceanBreeze',
+    required: true,
+  })
+  @IsString()
+  @MinLength(1)
+  @StringField({ required: true })
+  banner!: string;
+
+  @ApiProperty({
+    description: 'The socials of the store',
+    example: '[{"platform":"facebook","url":"https://facebook.com/myawesome"}]',
+    required: true,
+  })
+  @IsString()
+  socials!: string;
 }

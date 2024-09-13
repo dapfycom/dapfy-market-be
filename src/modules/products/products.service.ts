@@ -109,20 +109,25 @@ export class ProductsService {
 
       const categories = await this.prisma.category.findMany();
 
-      const categoryPrompt = `Analyze the product title "${createProductDto.title}" 
+      const categoryPrompt = `Analyze the digital product title "${createProductDto.title}" 
       and description "${createProductDto.description}". 
-      Select the most suitable category from this list: ${categories.map((category) => category.name).join(', ')}. 
-      If no existing category fits well, propose a new one. 
+      Select the most suitable category for this digital product from this list: 
+      ${categories.map((category) => category.name).join(', ')}. 
+      If no existing category fits or a new one is needed, propose a new one that's 
+      specific to digital products and suggest an appropriate emoji for it. 
       Respond with either "Existing: [category name]" for an existing category, 
-      or "New: [suggested category name]" for a new category.`;
+      or "New: [suggested category name] | [emoji]" for a new digital product category.`;
 
-      const systemPrompt = `You are an AI assistant specializing in product categorization. 
-      Your task is to categorize products based on their title and description. 
+      const systemPrompt = `You are an AI assistant specializing in digital product categorization. 
+      Your task is to categorize digital products based on their title and description. 
+      Remember that ALL products are digital, so avoid generic categories like "Digital Media" or "Digital Products".
+      Instead, focus on specific types of digital products such as "E-books", "Online Courses", "Software Tools", "Digital Art", etc.
       Respond only with one of these two formats:
       1. "Existing: [category name]" if the category already exists in the list.
-      2. "New: [suggested category name]" if you're proposing a new category.
+      2. "New: [suggested category name] | [emoji]" if you're proposing a new category specific to digital products.
       Available categories: [${categories.map((category) => category.name).join(', ')}].
-      Ensure your response is concise and follows the specified format.`;
+      Ensure your response is concise, follows the specified format, and is relevant to digital products only.
+      For new categories, the emoji should be a single Unicode character that best represents the category.`;
 
       let categoryResponse;
 
@@ -154,11 +159,19 @@ export class ProductsService {
           );
         }
       } else if (categoryResponse.startsWith('New:')) {
-        const newCategoryName = categoryResponse.split('New:')[1]?.trim();
+        const [newCategoryName, emoji] = (
+          categoryResponse.split('New:')[1] ?? ''
+        )
+          .trim()
+          .split('|')
+          .map((s) => s.trim());
 
         try {
           const newCategory = await this.prisma.category.create({
-            data: { name: newCategoryName ?? '' },
+            data: {
+              name: newCategoryName ?? '',
+              emoji: emoji ?? '',
+            },
           });
           categoryId = newCategory.id;
         } catch (error) {
@@ -181,7 +194,9 @@ export class ProductsService {
           images:
             imageUrls.length > 0
               ? {
-                  create: imageUrls.map((url) => ({ url })),
+                  create: imageUrls.map((url) => ({
+                    url: this.awsS3Service.getFullUrl(url),
+                  })),
                 }
               : undefined,
           digitalFiles:
@@ -236,6 +251,11 @@ export class ProductsService {
         skip,
         take,
         orderBy: { [q]: order },
+        include: {
+          images: true,
+          category: true,
+          store: true,
+        },
       }),
       this.prisma.product.count({ where: { isActive: true } }),
     ]);
@@ -263,6 +283,7 @@ export class ProductsService {
         take,
         orderBy: { [q]: order },
         include: {
+          images: true,
           category: true,
           store: true,
         },

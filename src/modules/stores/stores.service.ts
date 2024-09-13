@@ -12,7 +12,10 @@ import type { IFile } from '../../interfaces';
 import { AwsS3Service } from '../../shared/services/aws-s3.service';
 import { PrismaService } from '../../shared/services/prisma.service';
 import { ValidatorService } from '../../shared/services/validator.service';
-import type { CreateStoreDto } from './dto/create-store.dto';
+import type {
+  CreateStoreDto,
+  CreateStoreSocialDto,
+} from './dto/create-store.dto';
 import type { UpdateStoreDto } from './dto/update-store.dto';
 import type { Store } from './entities/store.entity';
 
@@ -36,7 +39,13 @@ export class StoresService {
     return store?.ownerId === userId || store?.owner.role === RoleType.ADMIN;
   }
 
-  async create(createStoreDto: CreateStoreDto, userId: string, file: IFile) {
+  async create(
+    createStoreDto: Omit<CreateStoreDto, 'socials'> & {
+      socials: CreateStoreSocialDto[];
+    },
+    userId: string,
+    file: IFile,
+  ) {
     if (!this.validatorService.isImage(file.mimetype)) {
       throw new FileNotImageException();
     }
@@ -48,6 +57,14 @@ export class StoresService {
         ...createStoreDto,
         ownerId: userId,
         logo: this.awsS3Service.getFullUrl(logoKey),
+        socials: {
+          createMany: {
+            data: createStoreDto.socials,
+          },
+        },
+      },
+      include: {
+        socials: true,
       },
     });
   }
@@ -61,6 +78,15 @@ export class StoresService {
       where: {
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
       },
+      include: {
+        socials: true,
+        products: {
+          include: {
+            images: true,
+          },
+        },
+        owner: true,
+      },
     });
 
     if (!store) {
@@ -69,7 +95,15 @@ export class StoresService {
       );
     }
 
-    return store;
+    return {
+      ...store,
+      owner: {
+        id: store.owner.id,
+        name: store.owner.username,
+        email: store.owner.email,
+        avatar: store.owner.avatar,
+      },
+    };
   }
 
   async findStores(
@@ -122,7 +156,13 @@ export class StoresService {
     return new PageDto(stores, pageMetaDto);
   }
 
-  async update(id: string, updateStoreDto: UpdateStoreDto, userId: string) {
+  async update(
+    id: string,
+    updateStoreDto: Omit<UpdateStoreDto, 'socials'> & {
+      socials: CreateStoreSocialDto[];
+    },
+    userId: string,
+  ) {
     const canUpdate = await this.verifyStoreOwnership(id, userId);
 
     if (!canUpdate) {
@@ -133,7 +173,15 @@ export class StoresService {
 
     return this.prisma.store.update({
       where: { id },
-      data: updateStoreDto,
+      data: {
+        ...updateStoreDto,
+        socials: {
+          updateMany: updateStoreDto.socials.map((social) => ({
+            where: { platform: social.platform, storeId: id },
+            data: social,
+          })),
+        },
+      },
     });
   }
 

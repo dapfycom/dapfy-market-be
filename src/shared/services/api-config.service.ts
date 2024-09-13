@@ -55,7 +55,8 @@ export class ApiConfigService {
   private getString(key: string): string {
     const value = this.get(key);
 
-    return value.replaceAll('\\n', '\n');
+    // eslint-disable-next-line unicorn/prefer-string-replace-all
+    return value.replace(/\\n/g, '\n');
   }
 
   get nodeEnv(): string {

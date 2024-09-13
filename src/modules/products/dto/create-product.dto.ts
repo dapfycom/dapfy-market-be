@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { $Enums, PaymentType, ProductStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { IsString } from 'class-validator';
 import { EnumField, NumberField, StringField } from '../../../decorators';
 import type { Product } from '../entities/product.entity';
 
@@ -60,6 +61,7 @@ export class CreateProductDto
     description: 'The slug of the product',
     example: 'pro-photoshop-actions',
   })
-  @StringField()
+  @StringField({ required: true })
+  @IsString()
   slug!: string;
 }

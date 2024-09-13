@@ -45,4 +45,10 @@ export class Store implements StorePrisma {
     example: 'https://example.com/logo.png',
   })
   logo!: string;
+
+  @ApiProperty({
+    description: 'The banner of the store',
+    example: 'oceanBreeze',
+  })
+  banner!: string;
 }

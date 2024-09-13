@@ -3,7 +3,8 @@
   "include": [
     "src/**/*",
     "*.{ts,js,mts}",
-    "test/**/*"
+    "test/**/*",
+    "prisma/**/*.ts"
   ],
   "exclude": [
     "node_modules",
