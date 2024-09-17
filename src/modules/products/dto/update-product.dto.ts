@@ -60,4 +60,11 @@ export class UpdateProductDto
   })
   @StringField()
   slug!: string;
+
+  @ApiProperty({
+    description: 'The long description of the product',
+    example: '# A detailed description of the product',
+  })
+  @StringField({ required: false })
+  longDescription!: string | null;
 }

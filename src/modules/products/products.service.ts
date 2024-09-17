@@ -16,6 +16,7 @@ import { PrismaService } from '../../shared/services/prisma.service';
 import type { CreateReviewDto } from './dto/create-product-review.dto';
 import type { CreateProductDto } from './dto/create-product.dto';
 import type { UpdateProductDto } from './dto/update-product.dto';
+import type { ProductReview } from './entities/product-review.entity';
 import type { Product } from './entities/product.entity';
 
 @Injectable()
@@ -189,7 +190,6 @@ export class ProductsService {
           ...createProductDto,
           categoryId,
           storeId,
-          slug: createProductDto.title.toLowerCase().replaceAll(' ', '-'),
 
           images:
             imageUrls.length > 0
@@ -233,10 +233,24 @@ export class ProductsService {
     });
   }
 
-  findOne(id: string) {
-    return this.prisma.product.findUnique({
-      where: { id, isActive: true },
+  async findOne(idOrSlug: string) {
+    const product = await this.prisma.product.findFirst({
+      where: {
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+        isActive: true,
+      },
+      include: {
+        images: true,
+        category: true,
+        store: true,
+      },
     });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return product;
   }
 
   async findProducts(
@@ -355,6 +369,28 @@ export class ProductsService {
     });
 
     // Update the product's average rating
+    await this.updateAverageRating(productId);
+
+    return review;
+  }
+
+  async deleteReview(productId: string, reviewId: string, userId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId, productId, userId },
+    });
+
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    await this.prisma.review.delete({
+      where: { id: reviewId, productId, userId },
+    });
+
+    await this.updateAverageRating(productId);
+  }
+
+  private async updateAverageRating(productId: string) {
     const reviews = await this.prisma.review.findMany({
       where: { productId },
       select: { rating: true },
@@ -368,7 +404,28 @@ export class ProductsService {
       where: { id: productId },
       data: { averageRating },
     });
+  }
 
-    return review;
+  async isSlugAvailable(slug: string): Promise<boolean> {
+    const existingProduct = await this.prisma.product.findUnique({
+      where: { slug },
+    });
+
+    return !existingProduct;
+  }
+
+  reviewsByProduct(productId: string): Promise<ProductReview[]> {
+    return this.prisma.review.findMany({
+      where: { productId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
+      },
+    });
   }
 }

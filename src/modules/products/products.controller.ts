@@ -133,15 +133,15 @@ export class ProductsController {
     return this.productsService.findProductsByUser(pageOptionsDto, user.id);
   }
 
-  @Get(':id')
+  @Get(':idOrSlug')
   @HttpCode(HttpStatus.OK)
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Product fetched successfully',
     type: Product,
   })
-  findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+  findOne(@Param('idOrSlug') idOrSlug: string) {
+    return this.productsService.findOne(idOrSlug);
   }
 
   @Patch(':id')
@@ -172,7 +172,7 @@ export class ProductsController {
   }
 
   @Post(':id/reviews')
-  @Auth([RoleType.USER, RoleType.USER, RoleType.ADMIN])
+  @Auth([RoleType.USER, RoleType.ADMIN])
   @HttpCode(HttpStatus.CREATED)
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -184,6 +184,34 @@ export class ProductsController {
     @Body() createReviewDto: CreateReviewDto,
     @AuthUser() user: UserEntity,
   ) {
+    // Only user that bought the product can review it
+    // const order = await this.ordersService.findOne(createReviewDto.orderId);
+    // if (order.userId !== user.id) {
+    //   throw new ForbiddenException('You can only review your own products');
+    // }
+
     return this.productsService.addReview(productId, createReviewDto, user.id);
+  }
+
+  @Get('check-slug/:slug')
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Check if a product slug is available',
+    type: Boolean,
+  })
+  checkSlugAvailability(@Param('slug') slug: string): Promise<boolean> {
+    return this.productsService.isSlugAvailable(slug);
+  }
+
+  @Get('reviews/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Get reviews of a product',
+    type: [ProductReview],
+  })
+  reviewsByProduct(@Param('id') id: string) {
+    return this.productsService.reviewsByProduct(id);
   }
 }

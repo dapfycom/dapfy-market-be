@@ -85,4 +85,10 @@ export class Product implements ProductPrisma {
     example: 'pro-photoshop-actions',
   })
   slug!: string;
+
+  @ApiProperty({
+    description: 'The long description of the product',
+    example: '# A detailed description of the product',
+  })
+  longDescription!: string | null;
 }
