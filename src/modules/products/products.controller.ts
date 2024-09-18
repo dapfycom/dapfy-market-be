@@ -113,8 +113,10 @@ export class ProductsController {
   findPaginated(
     @Query(new ValidationPipe({ transform: true }))
     pageOptionsDto: PageOptionsDto,
+    @Query('category') category?: string,
+    @Query('search') search?: string,
   ) {
-    return this.productsService.findProducts(pageOptionsDto);
+    return this.productsService.findProducts(pageOptionsDto, category, search);
   }
 
   @Get('user/paginated')

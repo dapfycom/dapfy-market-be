@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import type { PageOptionsDto } from '../../common/dto/page-options.dto';
 import { PageDto } from '../../common/dto/page.dto';
@@ -255,13 +256,26 @@ export class ProductsService {
 
   async findProducts(
     paginationDto: PageOptionsDto,
+    category?: string,
+    search?: string,
   ): Promise<PageDto<Partial<Product>>> {
     const { page, take, q = 'createdAt', order } = paginationDto;
     const skip = (page - 1) * take;
 
+    const whereClause = {
+      isActive: true,
+      ...(category && category !== 'All' && { category: { name: category } }),
+      ...(search && {
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    } as Prisma.ProductWhereInput;
+
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
-        where: { isActive: true },
+        where: whereClause,
         skip,
         take,
         orderBy: { [q]: order },
@@ -271,7 +285,7 @@ export class ProductsService {
           store: true,
         },
       }),
-      this.prisma.product.count({ where: { isActive: true } }),
+      this.prisma.product.count({ where: whereClause }),
     ]);
 
     const pageMetaDto = new PageMetaDto({
