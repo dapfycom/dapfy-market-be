@@ -93,7 +93,7 @@ export class ProductsController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  @Auth([RoleType.ADMIN])
+  //   @Auth([RoleType.ADMIN])
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Products fetched successfully',
