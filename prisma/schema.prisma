@@ -11,28 +11,76 @@ datasource db {
 }
 
 model User {
-    id              String           @id @default(uuid())
-    createdAt       DateTime         @default(now())
-    updatedAt       DateTime         @updatedAt
-    firstName       String? // Consider making this required based on business needs
-    lastName        String? // Consider making this required based on business needs
-    username        String           @unique @db.VarChar(255)
-    role            Role             @default(USER)
-    email           String           @unique @db.VarChar(255)
-    password        String           @db.VarChar(255)
-    avatar          String?
-    isActive        Boolean          @default(true)
-    settings        UserSettings?
-    orders          Order[]
-    cart            Cart?
-    sellerAnalytics SellerAnalytics?
-    supportTickets  SupportTicket[]
-    stores          Store[]
-    subscriptions   Subscription[]
-    reviews         Review[]
+    id                String                   @id @default(uuid())
+    createdAt         DateTime                 @default(now())
+    updatedAt         DateTime                 @updatedAt
+    name              String?
+    email             String                   @unique @db.VarChar(255)
+    password          String                   @db.VarChar(255)
+    role              Role                     @default(USER)
+    avatar            String?
+    isActive          Boolean                  @default(true)
+    personalInfo      PersonalInfo?
+    businessInfo      BusinessInfo?
+    interests         UserInterest[]
+    notificationPrefs NotificationPreferences?
+    settings          UserSettings?
+    orders            Order[]
+    cart              Cart?
+    sellerAnalytics   SellerAnalytics?
+    supportTickets    SupportTicket[]
+    stores            Store[]
+    subscriptions     Subscription[]
+    reviews           Review[]
 
     @@index([createdAt, updatedAt])
     @@map("users")
+}
+
+model PersonalInfo {
+    id       String  @id @default(uuid())
+    userId   String  @unique
+    user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    telegram String?
+    whatsApp String?
+    twitter  String?
+
+    @@map("personal_info")
+}
+
+model BusinessInfo {
+    id           String  @id @default(uuid())
+    userId       String  @unique
+    user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    businessName String?
+    companyEmail String? @db.VarChar(255)
+    description  String?
+    website      String?
+
+    @@map("business_info")
+}
+
+model UserInterest {
+    id         String   @id @default(uuid())
+    userId     String
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    categoryId String
+    category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, categoryId])
+    @@map("user_interests")
+}
+
+model NotificationPreferences {
+    id                String  @id @default(uuid())
+    userId            String  @unique
+    user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    newSales          Boolean @default(true)
+    productUpdates    Boolean @default(true)
+    communityActivity Boolean @default(true)
+    marketingEmails   Boolean @default(true)
+
+    @@map("notification_preferences")
 }
 
 model UserSettings {
@@ -260,10 +308,11 @@ enum SubscriptionStatus {
 }
 
 model Category {
-    id       String    @id @default(uuid())
-    name     String    @unique
+    id       String         @id @default(uuid())
+    name     String         @unique
     emoji    String?
     products Product[]
+    users    UserInterest[]
 
     @@map("categories")
 }
