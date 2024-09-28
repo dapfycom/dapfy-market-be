@@ -9,14 +9,8 @@ export class UserEntity implements User {
   @ApiProperty({ description: 'The date when the user was last updated' })
   updatedAt!: Date;
 
-  @ApiProperty({ description: "The user's first name", nullable: true })
-  firstName!: string | null;
-
-  @ApiProperty({ description: "The user's last name", nullable: true })
-  lastName!: string | null;
-
   @ApiProperty({ description: "The user's username" })
-  username!: string;
+  name!: string | null;
 
   @ApiProperty({ description: "The user's role", enum: Role })
   role!: Role;

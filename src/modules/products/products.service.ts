@@ -435,7 +435,7 @@ export class ProductsService {
         user: {
           select: {
             id: true,
-            username: true,
+            name: true,
             avatar: true,
           },
         },

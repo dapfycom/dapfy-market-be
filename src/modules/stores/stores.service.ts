@@ -99,7 +99,7 @@ export class StoresService {
       ...store,
       owner: {
         id: store.owner.id,
-        name: store.owner.username,
+        name: store.owner.name,
         email: store.owner.email,
         avatar: store.owner.avatar,
       },

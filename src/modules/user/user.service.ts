@@ -1,5 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import type { UserSettings } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type {
+  BusinessInfo,
+  NotificationPreferences,
+  UserSettings,
+} from '@prisma/client';
 import { Prisma } from '@prisma/client';
 
 import { randomUUID } from 'node:crypto';
@@ -14,7 +22,12 @@ import { PrismaService } from '../../shared/services/prisma.service';
 import { ValidatorService } from '../../shared/services/validator.service';
 import type { UserRegisterDto } from '../auth/dto/user-register.dto';
 import type { CreateSettingsDto } from './dtos/create-settings.dto';
-import { UserDto } from './dtos/user.dto';
+import type { UpdateBusinessInfoDto } from './dtos/update-business-info.dto';
+import type { UpdateInterestsDto } from './dtos/update-interests.dto';
+import type { UpdateNotificationPreferencesDto } from './dtos/update-notification-preferences.dto';
+import type { UpdatePersonalInfoDto } from './dtos/update-personal-info.dto';
+import type { InterestsDto } from './dtos/user.dto';
+import { PersonalInfoDto, UserDto } from './dtos/user.dto';
 import type { UsersPageOptionsDto } from './dtos/users-page-options.dto';
 import type { UserEntity } from './user.entity';
 
@@ -32,7 +45,7 @@ export class UserService {
   async findOne(findData: {
     id?: string;
     email?: string;
-    username?: string;
+    name?: string;
     role?: RoleType;
   }): Promise<UserEntity | null> {
     return this.prisma.user.findFirst({
@@ -43,13 +56,13 @@ export class UserService {
   }
 
   async findByUsernameOrEmail(
-    options: Partial<{ username: string; email: string }>,
+    options: Partial<{ name: string; email: string }>,
   ) {
     return this.prisma.user.findFirst({
       where: {
         OR: [
           {
-            username: options.username,
+            name: options.name,
           },
           {
             email: options.email,
@@ -59,10 +72,8 @@ export class UserService {
       select: {
         id: true,
         email: true,
-        username: true,
+        name: true,
         role: true,
-        firstName: true,
-        lastName: true,
         avatar: true,
         isActive: true,
         settings: {
@@ -92,7 +103,7 @@ export class UserService {
         data: {
           ...userRegisterDto,
           password: hashedPassword,
-          username: userRegisterDto.email,
+          name: userRegisterDto.email,
           avatar:
             avatar ??
             (file ? await this.awsS3Service.uploadImage(file) : undefined),
@@ -122,7 +133,7 @@ export class UserService {
     const user = await this.prisma.user.create({
       data: {
         email,
-        username: '',
+        name: '',
         password: generateHash(randomUUID().toString()),
         settings: {
           create: {
@@ -143,13 +154,12 @@ export class UserService {
     firstName: string;
     lastName: string;
   }): Promise<UserDto> {
-    const { email, picture, username, firstName, lastName } = profile;
+    const { email, picture, username } = profile;
     const user = await this.prisma.user.create({
       data: {
         email,
-        username,
-        firstName,
-        lastName,
+        name: username,
+
         password: generateHash(randomUUID().toString()),
         avatar: picture,
       },
@@ -173,8 +183,7 @@ export class UserService {
 
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          name: true,
           email: true,
           role: true,
           avatar: true,
@@ -226,13 +235,141 @@ export class UserService {
       },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        name: true,
         email: true,
         role: true,
         avatar: true,
         isActive: true,
       },
     });
+  }
+
+  async updatePersonalInfo(
+    userId: string,
+    updatePersonalInfoDto: UpdatePersonalInfoDto,
+    avatar?: IFile,
+  ): Promise<PersonalInfoDto> {
+    let avatarUrl: string | undefined;
+
+    if (avatar) {
+      avatarUrl = this.awsS3Service.getFullUrl(
+        await this.awsS3Service.uploadImage(avatar),
+      );
+    }
+
+    const { whatsApp, telegram, twitter, ...rest } = updatePersonalInfoDto;
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...rest,
+        ...(avatarUrl && { avatar: avatarUrl }),
+        personalInfo: {
+          upsert: {
+            update: {
+              whatsApp,
+              telegram,
+              twitter,
+            },
+            create: {
+              whatsApp,
+              telegram,
+              twitter,
+            },
+          },
+        },
+      },
+      include: {
+        personalInfo: true,
+      },
+    });
+
+    return new PersonalInfoDto(updatedUser);
+  }
+
+  async updateBusinessInfo(
+    userId: string,
+    updateBusinessInfoDto: UpdateBusinessInfoDto,
+  ): Promise<BusinessInfo> {
+    return this.prisma.businessInfo.upsert({
+      where: { userId },
+      update: updateBusinessInfoDto,
+      create: { ...updateBusinessInfoDto, userId },
+    });
+  }
+
+  async updateInterests(
+    userId: string,
+    updateInterestsDto: UpdateInterestsDto,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (prisma) => {
+      // Delete existing interests
+      await prisma.userInterest.deleteMany({ where: { userId } });
+
+      // Create new interests
+      await prisma.userInterest.createMany({
+        data: updateInterestsDto.categoryIds.map((categoryId) => ({
+          userId,
+          categoryId,
+        })),
+      });
+    });
+  }
+
+  async updateNotificationPreferences(
+    userId: string,
+    updateNotificationPreferencesDto: UpdateNotificationPreferencesDto,
+  ): Promise<NotificationPreferences> {
+    return this.prisma.notificationPreferences.upsert({
+      where: { userId },
+      update: updateNotificationPreferencesDto,
+      create: { ...updateNotificationPreferencesDto, userId },
+    });
+  }
+
+  async getPersonalInfo(userId: string): Promise<PersonalInfoDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { personalInfo: true },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException();
+    }
+
+    return new PersonalInfoDto(user);
+  }
+
+  async getBusinessInfo(userId: string): Promise<BusinessInfo> {
+    const businessInfo = await this.prisma.businessInfo.findUnique({
+      where: { userId },
+    });
+
+    if (!businessInfo) {
+      throw new NotFoundException('Business info not found');
+    }
+
+    return businessInfo;
+  }
+
+  async getInterests(userId: string): Promise<InterestsDto[]> {
+    return this.prisma.userInterest.findMany({
+      where: { userId },
+      include: { category: true },
+    });
+  }
+
+  async getNotificationPreferences(
+    userId: string,
+  ): Promise<NotificationPreferences> {
+    const preferences = await this.prisma.notificationPreferences.findUnique({
+      where: { userId },
+    });
+
+    if (!preferences) {
+      throw new NotFoundException('Notification preferences not found');
+    }
+
+    return preferences;
   }
 }
