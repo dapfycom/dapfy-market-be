@@ -9,7 +9,6 @@ import { EmailService } from './services/email.service';
 import { GeneratorService } from './services/generator.service';
 import { GroqService } from './services/groq.service';
 import { PrismaService } from './services/prisma.service';
-import { UnsplashService } from './services/unsplash.service';
 import { ValidatorService } from './services/validator.service';
 
 const providers: Provider[] = [
@@ -21,7 +20,7 @@ const providers: Provider[] = [
   EmailService,
   GroqService,
 
-  UnsplashService,
+  //   UnsplashService,
 ];
 
 @Global()
