@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   BusinessInfo,
   NotificationPreferences,
@@ -151,15 +147,12 @@ export class UserService {
     email: string;
     picture: string;
     username: string;
-    firstName: string;
-    lastName: string;
   }): Promise<UserDto> {
     const { email, picture, username } = profile;
     const user = await this.prisma.user.create({
       data: {
         email,
         name: username,
-
         password: generateHash(randomUUID().toString()),
         avatar: picture,
       },
@@ -306,13 +299,15 @@ export class UserService {
       // Delete existing interests
       await prisma.userInterest.deleteMany({ where: { userId } });
 
-      // Create new interests
-      await prisma.userInterest.createMany({
-        data: updateInterestsDto.categoryIds.map((categoryId) => ({
-          userId,
-          categoryId,
-        })),
-      });
+      if (updateInterestsDto.categoryIds.length > 0) {
+        // Create new interests
+        await prisma.userInterest.createMany({
+          data: updateInterestsDto.categoryIds.map((categoryId) => ({
+            userId,
+            categoryId,
+          })),
+        });
+      }
     });
   }
 
@@ -341,15 +336,17 @@ export class UserService {
   }
 
   async getBusinessInfo(userId: string): Promise<BusinessInfo> {
-    const businessInfo = await this.prisma.businessInfo.findUnique({
+    return this.prisma.businessInfo.upsert({
       where: { userId },
+      update: {},
+      create: {
+        userId,
+        companyEmail: '',
+        businessName: '',
+        website: '',
+        description: '',
+      },
     });
-
-    if (!businessInfo) {
-      throw new NotFoundException('Business info not found');
-    }
-
-    return businessInfo;
   }
 
   async getInterests(userId: string): Promise<InterestsDto[]> {
@@ -362,14 +359,16 @@ export class UserService {
   async getNotificationPreferences(
     userId: string,
   ): Promise<NotificationPreferences> {
-    const preferences = await this.prisma.notificationPreferences.findUnique({
+    return this.prisma.notificationPreferences.upsert({
       where: { userId },
+      update: {},
+      create: {
+        userId,
+        marketingEmails: false,
+        productUpdates: false,
+        newSales: false,
+        communityActivity: false,
+      },
     });
-
-    if (!preferences) {
-      throw new NotFoundException('Notification preferences not found');
-    }
-
-    return preferences;
   }
 }

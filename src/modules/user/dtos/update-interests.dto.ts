@@ -11,6 +11,6 @@ export class UpdateInterestsDto {
     ],
   })
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(0)
   categoryIds!: string[];
 }
