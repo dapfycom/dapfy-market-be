@@ -20,6 +20,14 @@ export class CreateStoreSocialDto {
   @IsString()
   @MinLength(1)
   url!: string;
+
+  @ApiProperty({
+    description: 'The id of the social',
+    example: '123',
+    required: false,
+  })
+  @IsString()
+  id?: string;
 }
 
 export class CreateStoreDto

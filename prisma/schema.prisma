@@ -118,7 +118,6 @@ model StoreSocial {
     platform SocialPlatform
     url      String         @db.VarChar(255)
 
-    @@unique([storeId, platform])
     @@map("store_socials")
 }
 

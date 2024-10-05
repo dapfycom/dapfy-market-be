@@ -142,6 +142,9 @@ export class StoresService {
         where: { ownerId: userId },
         skip,
         take,
+        include: {
+          socials: true,
+        },
         orderBy: { [q]: order },
       }),
       this.prisma.store.count({ where: { ownerId: userId } }),
@@ -162,6 +165,7 @@ export class StoresService {
       socials: CreateStoreSocialDto[];
     },
     userId: string,
+    file?: IFile,
   ) {
     const canUpdate = await this.verifyStoreOwnership(id, userId);
 
@@ -171,16 +175,42 @@ export class StoresService {
       );
     }
 
+    let logoKey: string | undefined;
+
+    if (file) {
+      if (!this.validatorService.isImage(file.mimetype)) {
+        throw new FileNotImageException();
+      }
+
+      logoKey = await this.awsS3Service.uploadImage(file);
+    }
+
+    // Separate existing and new socials
+    const existingSocials = updateStoreDto.socials.filter(
+      (social) => social.id,
+    );
+    const newSocials = updateStoreDto.socials.filter((social) => !social.id);
+
     return this.prisma.store.update({
       where: { id },
       data: {
         ...updateStoreDto,
+        logo: logoKey ? this.awsS3Service.getFullUrl(logoKey) : undefined,
         socials: {
-          updateMany: updateStoreDto.socials.map((social) => ({
-            where: { platform: social.platform, storeId: id },
-            data: social,
+          // Update existing socials
+          update: existingSocials.map((social) => ({
+            where: { id: social.id },
+            data: { platform: social.platform, url: social.url },
+          })),
+          // Create new socials
+          create: newSocials.map((social) => ({
+            platform: social.platform,
+            url: social.url,
           })),
         },
+      },
+      include: {
+        socials: true,
       },
     });
   }

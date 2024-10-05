@@ -130,10 +130,12 @@ export class StoresController {
     description: 'Store updated successfully',
     type: Store,
   })
+  @ApiFile({ name: 'logo' })
   update(
     @Param('id') id: string,
     @Body() updateStoreDto: UpdateStoreDto,
     @AuthUser() user: UserEntity,
+    @UploadedFile() logo?: IFile,
   ) {
     let parsedSocials: CreateStoreSocialDto[];
 
@@ -151,6 +153,7 @@ export class StoresController {
       // @ts-expect-error
       { ...updateStoreDto, socials: parsedSocials },
       user.id,
+      logo,
     );
   }
 
