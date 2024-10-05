@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import type { Product } from '@prisma/client';
 import { $Enums, PaymentType, ProductStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 import { NumberField, StringField } from '../../../decorators';
 
 export class UpdateProductDto
@@ -67,4 +68,14 @@ export class UpdateProductDto
   })
   @StringField({ required: false })
   longDescription!: string | null;
+
+  @ApiProperty({
+    description: 'The ids of the images to remove from the product',
+    example: ['id-image1', 'id-image2'],
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  removeImages?: string[];
 }

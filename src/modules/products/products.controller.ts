@@ -154,12 +154,50 @@ export class ProductsController {
     description: 'Product updated successfully',
     type: Product,
   })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 10 },
+      { name: 'digitalFiles' },
+    ]),
+  )
   update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
     @AuthUser() user: UserEntity,
+    @UploadedFiles()
+    files: {
+      images?: IFile[];
+      digitalFiles?: IFile[];
+    },
   ) {
-    return this.productsService.update(id, updateProductDto, user.id);
+    let totalSize = 0;
+
+    // TODO: Fix this, should count old files size and new files size
+    for (const file of files.digitalFiles ?? []) {
+      totalSize += file.size;
+    }
+
+    if (totalSize > 5 * 1024 * 1024 * 1024) {
+      // 5GB in bytes
+      throw new BadRequestException(
+        'Total size of digital files exceeds the 5GB limit',
+      );
+    }
+
+    for (const file of files.images ?? []) {
+      if (!this.validatorService.isImage(file.mimetype)) {
+        throw new FileNotImageException();
+      }
+    }
+
+    return this.productsService.update(
+      id,
+      updateProductDto,
+      user.id,
+      files.images,
+      files.digitalFiles,
+    );
   }
 
   @Delete(':id')
@@ -202,7 +240,9 @@ export class ProductsController {
     description: 'Check if a product slug is available',
     type: Boolean,
   })
-  checkSlugAvailability(@Param('slug') slug: string): Promise<boolean> {
+  checkSlugAvailability(
+    @Param('slug') slug: string,
+  ): Promise<{ available: boolean; id: string | null }> {
     return this.productsService.isSlugAvailable(slug);
   }
 

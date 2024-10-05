@@ -330,7 +330,13 @@ export class ProductsService {
     return new PageDto(products, pageMetaDto);
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    userId: string,
+    images?: IFile[],
+    digitalFiles?: IFile[],
+  ) {
     const canUpdate = await this.verifyProductOwnership(id, userId);
 
     if (!canUpdate) {
@@ -339,11 +345,70 @@ export class ProductsService {
       );
     }
 
-    const { ...data } = updateProductDto;
+    let imageUrls: string[] = [];
+    let digitalFileData: Array<{
+      fileName: string;
+      fileSize: number;
+      fileUrl: string;
+    }> = [];
+
+    if (images) {
+      try {
+        imageUrls = await this.awsS3Service.uploadImages(images);
+      } catch (error) {
+        throw new InternalServerErrorException(
+          'Failed to upload images to S3',
+          error?.message as string,
+        );
+      }
+    }
+
+    if (digitalFiles) {
+      try {
+        const uploadPromises = digitalFiles.map((file) =>
+          this.awsS3Service.uploadPrivatedFile(file).then((uploadedFile) => ({
+            fileName: file.fieldname,
+            fileSize: file.size,
+            fileUrl: uploadedFile,
+          })),
+        );
+        digitalFileData = await Promise.all(uploadPromises);
+      } catch (error) {
+        throw new InternalServerErrorException(
+          'Failed to upload digital files to S3',
+          error?.message as string,
+        );
+      }
+    }
+
+    const { removeImages, ...data } = updateProductDto;
 
     return this.prisma.product.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        images:
+          imageUrls.length > 0
+            ? {
+                create: imageUrls.map((url) => ({
+                  url: this.awsS3Service.getFullUrl(url),
+                })),
+                deleteMany: { id: { in: removeImages ?? [] } },
+              }
+            : {
+                deleteMany: { id: { in: removeImages ?? [] } },
+              },
+        digitalFiles:
+          digitalFileData.length > 0
+            ? {
+                create: digitalFileData.map((file) => ({
+                  fileName: file.fileName,
+                  fileSize: file.fileSize,
+                  fileUrl: file.fileUrl,
+                })),
+              }
+            : undefined,
+      },
     });
   }
 
@@ -420,12 +485,14 @@ export class ProductsService {
     });
   }
 
-  async isSlugAvailable(slug: string): Promise<boolean> {
+  async isSlugAvailable(
+    slug: string,
+  ): Promise<{ available: boolean; id: string | null }> {
     const existingProduct = await this.prisma.product.findUnique({
       where: { slug },
     });
 
-    return !existingProduct;
+    return { available: !existingProduct, id: existingProduct?.id ?? null };
   }
 
   reviewsByProduct(productId: string): Promise<ProductReview[]> {
