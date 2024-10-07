@@ -3,6 +3,7 @@ import { Global, Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 
 import { HttpModule } from '@nestjs/axios';
+import { AlgoliaService } from './services/algolia.service';
 import { ApiConfigService } from './services/api-config.service';
 import { AwsS3Service } from './services/aws-s3.service';
 import { EmailService } from './services/email.service';
@@ -19,8 +20,7 @@ const providers: Provider[] = [
   PrismaService,
   EmailService,
   GroqService,
-
-  //   UnsplashService,
+  AlgoliaService,
 ];
 
 @Global()

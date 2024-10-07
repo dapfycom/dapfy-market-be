@@ -109,6 +109,14 @@ export class ApiConfigService {
     };
   }
 
+  get algoliaConfig() {
+    return {
+      appId: this.getString('ALGOLIA_APP_ID'),
+      apiKey: this.getString('ALGOLIA_API_KEY'),
+      productIndex: this.getString('ALGOLIA_PRODUCT_INDEX'),
+    };
+  }
+
   get documentationEnabled(): boolean {
     return this.getBoolean('ENABLE_DOCUMENTATION');
   }

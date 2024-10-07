@@ -11,9 +11,11 @@ import type { PageOptionsDto } from '../../common/dto/page-options.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { RoleType } from '../../constants';
 import type { IFile } from '../../interfaces';
+import { AlgoliaService } from '../../shared/services/algolia.service';
 import { AwsS3Service } from '../../shared/services/aws-s3.service';
 import { GroqService } from '../../shared/services/groq.service';
 import { PrismaService } from '../../shared/services/prisma.service';
+import { formatPrice } from '../../shared/utils/price.utils';
 import type { CreateReviewDto } from './dto/create-product-review.dto';
 import type { CreateProductDto } from './dto/create-product.dto';
 import type { UpdateProductDto } from './dto/update-product.dto';
@@ -27,6 +29,7 @@ export class ProductsService {
 
     private awsS3Service: AwsS3Service,
     private groqService: GroqService,
+    private algoliaService: AlgoliaService,
   ) {}
 
   async verifyStoreOwnership(
@@ -186,7 +189,11 @@ export class ProductsService {
         throw new BadRequestException('Unexpected AI response format');
       }
 
-      return this.prisma.product.create({
+      const imagesData = imageUrls.map((url) => ({
+        url: this.awsS3Service.getFullUrl(url),
+      }));
+
+      const createdProduct = await this.prisma.product.create({
         data: {
           ...createProductDto,
           categoryId,
@@ -195,9 +202,7 @@ export class ProductsService {
           images:
             imageUrls.length > 0
               ? {
-                  create: imageUrls.map((url) => ({
-                    url: this.awsS3Service.getFullUrl(url),
-                  })),
+                  create: imagesData,
                 }
               : undefined,
           digitalFiles:
@@ -212,6 +217,17 @@ export class ProductsService {
               : undefined,
         },
       });
+
+      // Add product to Algolia index
+      await this.algoliaService.addProduct({
+        objectID: createdProduct.id,
+        name: createdProduct.title,
+        description: createdProduct.description,
+        price: Number.parseFloat(formatPrice(createdProduct.price)),
+        image: imagesData[0]?.url ?? '',
+      });
+
+      return createdProduct;
     } catch (error) {
       if (
         error instanceof ForbiddenException ||
@@ -383,16 +399,18 @@ export class ProductsService {
 
     const { removeImages, ...data } = updateProductDto;
 
-    return this.prisma.product.update({
+    const imagesData = imageUrls.map((url) => ({
+      url: this.awsS3Service.getFullUrl(url),
+    }));
+
+    const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: {
         ...data,
         images:
           imageUrls.length > 0
             ? {
-                create: imageUrls.map((url) => ({
-                  url: this.awsS3Service.getFullUrl(url),
-                })),
+                create: imagesData,
                 deleteMany: { id: { in: removeImages ?? [] } },
               }
             : {
@@ -410,6 +428,17 @@ export class ProductsService {
             : undefined,
       },
     });
+
+    // Update product in Algolia index
+    await this.algoliaService.updateProduct({
+      objectID: updatedProduct.id,
+      name: updatedProduct.title,
+      description: updatedProduct.description,
+      price: Number.parseFloat(formatPrice(updatedProduct.price)),
+      image: imagesData[0]?.url ?? '',
+    });
+
+    return updatedProduct;
   }
 
   async remove(id: string, userId: string) {
@@ -421,9 +450,14 @@ export class ProductsService {
       );
     }
 
-    return this.prisma.product.delete({
+    const deletedProduct = await this.prisma.product.delete({
       where: { id },
     });
+
+    // Remove product from Algolia index
+    await this.algoliaService.deleteProduct(id);
+
+    return deletedProduct;
   }
 
   async addReview(
