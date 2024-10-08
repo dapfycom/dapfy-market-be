@@ -25,6 +25,7 @@ import { UserEntity } from '../../modules/user/user.entity';
 import { ValidatorService } from '../../shared/services/validator.service';
 import { CreateReviewDto } from './dto/create-product-review.dto';
 import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductReview } from './entities/product-review.entity';
 import { Product } from './entities/product.entity';
@@ -255,5 +256,25 @@ export class ProductsController {
   })
   reviewsByProduct(@Param('id') id: string) {
     return this.productsService.reviewsByProduct(id);
+  }
+
+  @Patch(':id/status')
+  @Auth([RoleType.USER, RoleType.ADMIN])
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Product status updated successfully',
+    type: Product,
+  })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() updateProductStatusDto: UpdateProductStatusDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.productsService.updateStatus(
+      id,
+      updateProductStatusDto,
+      user.id,
+    );
   }
 }

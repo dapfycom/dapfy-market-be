@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { ProductStatus } from '@prisma/client';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import type { PageOptionsDto } from '../../common/dto/page-options.dto';
 import { PageDto } from '../../common/dto/page.dto';
@@ -18,6 +19,7 @@ import { PrismaService } from '../../shared/services/prisma.service';
 import { formatPrice } from '../../shared/utils/price.utils';
 import type { CreateReviewDto } from './dto/create-product-review.dto';
 import type { CreateProductDto } from './dto/create-product.dto';
+import type { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import type { UpdateProductDto } from './dto/update-product.dto';
 import type { ProductReview } from './entities/product-review.entity';
 import type { Product } from './entities/product.entity';
@@ -222,7 +224,8 @@ export class ProductsService {
       });
 
       // Add product to Algolia index
-      await this.algoliaService.addProduct({
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions, @typescript-eslint/no-floating-promises
+      this.algoliaService.addProduct({
         objectID: createdProduct.id,
         title: createdProduct.title,
         description: createdProduct.description,
@@ -251,7 +254,7 @@ export class ProductsService {
 
   findAll() {
     return this.prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, status: ProductStatus.PUBLISHED },
     });
   }
 
@@ -260,6 +263,7 @@ export class ProductsService {
       where: {
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
         isActive: true,
+        status: ProductStatus.PUBLISHED,
       },
       include: {
         images: true,
@@ -285,6 +289,7 @@ export class ProductsService {
 
     const whereClause = {
       isActive: true,
+      status: ProductStatus.PUBLISHED,
       ...(category && category !== 'All' && { category: { name: category } }),
       ...(search && {
         OR: [
@@ -438,7 +443,8 @@ export class ProductsService {
     });
 
     // Update product in Algolia index
-    await this.algoliaService.updateProduct({
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions, @typescript-eslint/no-floating-promises
+    this.algoliaService.updateProduct({
       objectID: updatedProduct.id,
       title: updatedProduct.title,
       description: updatedProduct.description,
@@ -465,7 +471,8 @@ export class ProductsService {
     });
 
     // Remove product from Algolia index
-    await this.algoliaService.deleteProduct(id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions, @typescript-eslint/no-floating-promises
+    this.algoliaService.deleteProduct(id);
 
     return deletedProduct;
   }
@@ -552,5 +559,59 @@ export class ProductsService {
         },
       },
     });
+  }
+
+  async updateStatus(
+    id: string,
+    updateProductStatusDto: UpdateProductStatusDto,
+    userId: string,
+  ) {
+    const canUpdate = await this.verifyProductOwnership(id, userId);
+
+    if (!canUpdate) {
+      throw new ForbiddenException(
+        'You do not have permission to update this product',
+      );
+    }
+
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (product.status === updateProductStatusDto.status) {
+      return { message: 'Product status is already up to date' };
+    }
+
+    const updatedProduct = await this.prisma.product.update({
+      where: { id },
+      data: {
+        status: updateProductStatusDto.status,
+      },
+      include: {
+        category: true,
+        images: true,
+      },
+    });
+
+    // Update Algolia index only if status changed
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions, @typescript-eslint/no-floating-promises
+    updatedProduct.status === ProductStatus.PUBLISHED
+      ? this.algoliaService.addProduct({
+          objectID: updatedProduct.id,
+          title: updatedProduct.title,
+          description: updatedProduct.description,
+          price: Number.parseFloat(formatPrice(updatedProduct.price)),
+          images: updatedProduct.images.map((image) => image.url),
+          category: updatedProduct.category.name,
+          slug: updatedProduct.slug,
+        })
+      : this.algoliaService.deleteProduct(id);
+
+    return updatedProduct;
   }
 }
