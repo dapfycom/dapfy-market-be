@@ -82,6 +82,21 @@ export class AwsS3Service {
     return Promise.all(uploadPromises);
   }
 
+  async deleteFile(key: string, bucket?: string): Promise<void> {
+    try {
+      const bucketName = bucket ?? this.configService.awsS3Config.bucketName;
+
+      await this.s3.deleteObject({
+        Bucket: bucketName,
+        Key: key,
+      });
+    } catch (error) {
+      console.error('Error deleting file from S3:', error);
+
+      throw new InternalServerErrorException('Failed to delete file from S3');
+    }
+  }
+
   getFullUrl(key: string): string {
     return `https://${this.configService.awsS3Config.bucketName}.s3.${this.configService.awsS3Config.bucketRegion}.amazonaws.com/${key}`;
   }

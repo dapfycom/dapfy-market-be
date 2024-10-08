@@ -466,13 +466,61 @@ export class ProductsService {
       );
     }
 
-    const deletedProduct = await this.prisma.product.delete({
+    // Fetch the product with its related data
+    const product = await this.prisma.product.findUnique({
       where: { id },
+      include: {
+        images: true,
+        digitalFiles: true,
+        category: true,
+      },
     });
 
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Delete related files from S3
+    const deletePromises = [
+      ...product.images.map((image) =>
+        this.awsS3Service.deleteFile(image.url.split('/').pop() ?? ''),
+      ),
+      ...product.digitalFiles.map((file) =>
+        this.awsS3Service.deleteFile(file.fileUrl),
+      ),
+    ];
+
+    await Promise.all(deletePromises);
+
+    // Before deleting the product
+    await this.prisma.$transaction([
+      this.prisma.productImage.deleteMany({ where: { productId: id } }),
+      this.prisma.digitalFile.deleteMany({ where: { productId: id } }),
+      this.prisma.cartItem.deleteMany({ where: { productId: id } }),
+      this.prisma.orderItem.deleteMany({ where: { productId: id } }),
+      this.prisma.subscription.deleteMany({ where: { productId: id } }),
+      this.prisma.review.deleteMany({ where: { productId: id } }),
+    ]);
+
+    // Now delete the product
+    const deletedProduct = await this.prisma.product.delete({
+      where: { id },
+      include: { category: true },
+    });
+
+    // Check if the category is now empty and delete if so
+    const remainingProductsInCategory = await this.prisma.product.count({
+      where: { categoryId: deletedProduct.categoryId },
+    });
+
+    if (remainingProductsInCategory === 0) {
+      await this.prisma.category.delete({
+        where: { id: deletedProduct.categoryId },
+      });
+    }
+
     // Remove product from Algolia index
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions, @typescript-eslint/no-floating-promises
-    this.algoliaService.deleteProduct(id);
+    await this.algoliaService.deleteProduct(id);
 
     return deletedProduct;
   }
