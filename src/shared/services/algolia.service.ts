@@ -4,6 +4,16 @@ import type { SearchClient, SearchResult } from 'algoliasearch';
 import { algoliasearch } from 'algoliasearch';
 import { ApiConfigService } from './api-config.service';
 
+export interface IProduct {
+  objectID: string;
+  title: string;
+  description: string;
+  price: number;
+  images: string[];
+  slug: string;
+  category: string;
+}
+
 @Injectable()
 export class AlgoliaService {
   private readonly client: SearchClient;
@@ -16,19 +26,10 @@ export class AlgoliaService {
     this.productIndex = productIndex;
   }
 
-  async addProduct(
-    product: {
-      objectID: string;
-      name: string;
-      description: string;
-      price: number;
-      image: string;
-    },
-    indexName?: string,
-  ): Promise<void> {
+  async addProduct(product: IProduct, indexName?: string): Promise<void> {
     const { taskID } = await this.client.saveObject({
       indexName: indexName ?? this.productIndex,
-      body: product,
+      body: product as any,
     });
 
     await this.client.waitForTask({
@@ -37,20 +38,11 @@ export class AlgoliaService {
     });
   }
 
-  async updateProduct(
-    product: {
-      objectID: string;
-      name?: string;
-      description?: string;
-      price?: number;
-      image?: string;
-    },
-    indexName?: string,
-  ): Promise<void> {
+  async updateProduct(product: IProduct, indexName?: string): Promise<void> {
     const { taskID } = await this.client.partialUpdateObject({
       indexName: indexName ?? this.productIndex,
       objectID: product.objectID,
-      attributesToUpdate: product,
+      attributesToUpdate: product as any,
       createIfNotExists: false,
     });
 
@@ -76,11 +68,11 @@ export class AlgoliaService {
     });
   }
 
-  async searchProducts<T>(
+  async searchProducts(
     query: string,
     indexName?: string,
-  ): Promise<Array<SearchResult<T>>> {
-    const { results } = await this.client.search<T>({
+  ): Promise<Array<SearchResult<IProduct>>> {
+    const { results } = await this.client.search<IProduct>({
       requests: [
         {
           indexName: indexName ?? this.productIndex,

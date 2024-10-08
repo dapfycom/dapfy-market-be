@@ -216,15 +216,20 @@ export class ProductsService {
                 }
               : undefined,
         },
+        include: {
+          category: true,
+        },
       });
 
       // Add product to Algolia index
       await this.algoliaService.addProduct({
         objectID: createdProduct.id,
-        name: createdProduct.title,
+        title: createdProduct.title,
         description: createdProduct.description,
         price: Number.parseFloat(formatPrice(createdProduct.price)),
-        image: imagesData[0]?.url ?? '',
+        images: imagesData.map((image) => image.url),
+        category: createdProduct.category.name,
+        slug: createdProduct.slug,
       });
 
       return createdProduct;
@@ -427,15 +432,20 @@ export class ProductsService {
               }
             : undefined,
       },
+      include: {
+        category: true,
+      },
     });
 
     // Update product in Algolia index
     await this.algoliaService.updateProduct({
       objectID: updatedProduct.id,
-      name: updatedProduct.title,
+      title: updatedProduct.title,
       description: updatedProduct.description,
       price: Number.parseFloat(formatPrice(updatedProduct.price)),
-      image: imagesData[0]?.url ?? '',
+      images: imagesData.map((image) => image.url),
+      category: updatedProduct.category.name,
+      slug: updatedProduct.slug,
     });
 
     return updatedProduct;

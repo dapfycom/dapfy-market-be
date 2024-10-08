@@ -29,7 +29,8 @@
     "docs:deploy": "yarn docs:build && gh-pages -d .vuepress/dist",
     "prepare": "husky install",
     "release": "release-it",
-    "docker:db": "sudo docker compose -f docker-compose.db.yml up -d"
+    "docker:db": "sudo docker compose -f docker-compose.db.yml up -d",
+    "sync-algolia": "ts-node src/scripts/sync-algolia.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.485.0",
